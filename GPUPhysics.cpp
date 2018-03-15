@@ -2,7 +2,7 @@
 #include <GLFW/glfw3.h>
 #include <unistd.h>
 #include <vector>
-#include <glm/glm.hpp>
+#include "Objects.h"
 #include <stdio.h>
 
 /*Defined Constatns*/
@@ -10,54 +10,6 @@
 #define SCREEN_HEIGHT 480
 using namespace std;
 
-/*Struct Definitions*/
-struct Mass{
-	float mass;
-	glm::vec3 vel;
-	glm::vec3 accel;
-	glm::vec3 Position;
-	
-	void updatePosition(float dt){
-	Position += vel * dt;
-	}
-	void updateVelocity(float dt){
-	vel += accel * dt;
-	}
-	void setPosition(float x, float y, float z){
-		Position.x = x;
-		Position.y = y;
-		Position.z = z; 
-	}
-	/*Constructor*/
-	Mass(float m, float x = 0, float y = 0, float z = 0) 
-	:mass(m), Position(glm::vec3(z, y, z)), accel(glm::vec3(0)), vel(glm::vec3(0))
-	{}	
-};
-
-/*Weird wrapper thing for mass distance*/
-float getDistance(Mass &m1, Mass &m2){
-	return glm::distance(m1.Position, m2.Position);
-}
-
-struct Spring{
-	float springConst;
-	float initLen;
-	Mass *m1;
-	Mass *m2;
-	
-	/*Returns Spring Length*/
-	float springLen(){
-		return getDistance(*m1, *m2);
-	}
-	
-	/*Constructor*/
-	Spring(Mass *n1, Mass *n2, float k = 1.f)
-	:m1(n1), m2(n2), springConst(k)
-	{
-		initLen = getDistance(*n1, *n2);
-	}
-};
-/*End Struct Definitions*/
 
 /*Global Variables*/
 bool step = false;
@@ -71,6 +23,11 @@ vector<Mass> massList;
 vector<Spring> springList;
 int springSize;
 int massSize;
+
+//These are initialized and passed to the GPU
+Mass* d_masslist;
+Spring* d_springList;
+
 
 /*GLfloat vertices[] =	//mass cooridnates in a cube
     {
@@ -302,6 +259,7 @@ GLFWwindow* initWindow(const int x, const int y){ //initalize the window that ap
 void drawCube(){
 	float massPoints[massList.size() * 3];
 	float springPoints[springList.size() * 6];
+	
 	//while the simulation is running
 	/*
 	for(Mass& m : massList){
@@ -309,7 +267,15 @@ void drawCube(){
 		m.accel.y = 0.0f;
 		m.accel.z = 0.0f;
 	}*/
-	initMassAccel<<<1, massList.size()>>>()
+
+	//cudaMalloc...
+	//cudaMemcpy
+
+	cudaMalloc( (void**) d_masslist, massList.size()*sizeof(Mass));
+	cudaMemcpy(d_masslist, massList, massList.size()*sizeof(Mass) , cudaMemcpyHostToDevice);
+	
+	initMassAccel<<<1, massList.size()>>>(d_masslist);
+	cudaMemcpy(d_masslist, massList, massList.size()*sizeof(Mass), cudaMemcpyDeviceToHost );
 	
 	/*
 	for(Spring& s : springList){
@@ -323,7 +289,16 @@ void drawCube(){
 		s.m1->accel += springForce * (1/(s.m1->mass));
 		s.m2->accel += (-1.f * springForce) * (1/(s.m2->mass));
 	} */
+
+	//cudaMalloc...
+	//cudaMemcpy
+	
+	cudaMalloc((void**) d_springList, springList.size()*sizeof(Spring));
+	cudaMemcpy(d_springList, springList, massList.size()*sizeof(Mass), cudaMemcpyHostToDevice);
+
 	calcSpringForce<<< >>>(&springList);
+
+	cudaMemcpy(springList, d_springList, springList.size()*sizeof(Spring), cudaMemcpyDeviceToHost);
 
 	/*Update Gravity and Ground Normal Force*/
 	
@@ -338,7 +313,11 @@ void drawCube(){
 		m.updatePosition(dt);
 	}*/
 
-	gravityForce<<< >>>();
+	//cudaMalloc...
+	//cudaMemcpy
+	
+
+	gravityForce<<< >>>(d_masslist, Gravity, dt);
 
 	/*Get a list of points that represent the new positions of the masses*/
 	/*
@@ -350,7 +329,9 @@ void drawCube(){
 		i+=3;
 	}*/
 
-	normalizeMassPos<<< >>>();
+	//cudaMalloc...
+	//cudaMemcpy
+	normalizeMassPos<<< >>>(d_masslist, d_mass_points, fieldDepth);
 
 	/*Get a list of points that represent the positions of the spring end points*/
 	
@@ -367,7 +348,12 @@ void drawCube(){
 	}
 	*/
 	
-	normalizeSprings<<< >>>();
+	//cudaMalloc...
+	//cudaMemcpy
+	normalizeSprings<<< >>>(d_springList, d_springPoints, fieldDepth);
+
+	cudaMemcpy(springList, d_springList, springList.size()*sizeof(Spring), cudaMemcpyDeviceToHost);
+	cudaMemcpy(springPoints, d_springPoints, springList.size()*6*sizeof(GL_FLOAT), cudaMemcpyDeviceToHost);
 
 	/*Reset Modelview_Matrix + Adjustments*/
 	glMatrixMode(GL_MODELVIEW_MATRIX);
