@@ -20,6 +20,7 @@ __global__ void normalizeMassPos(Mass* Masses, float* massPoints, float fieldDep
 __global__ void normalizeSprings(Spring* Springs, float* springPoints, float fieldDepth){
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
 	springPoints[i] = Springs[ i / 6].m1->Position.x / fieldDepth;
+	
 }
 
 //calcuates force for each spring
@@ -50,7 +51,14 @@ __global__ void gravityForce(Mass* m, int N, float gravConst, float dt){
 
 __global__ void initMassAccel(Mass* m){
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
-	m[i].accel.x = 0.0f;
-	m[i].accel.y = 0.0f;
-	m[i].accel.z = 0.0f; 
+	switch(i%3):
+	case (0):
+		m[i].accel.x = 0.0f;
+	break;
+	case (1):
+		m[i].accel.y = 0.0f;
+	break;
+	case(2):
+	m[i].accel.z = 0.0f;
+	break;
 };

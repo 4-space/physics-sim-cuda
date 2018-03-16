@@ -274,7 +274,8 @@ void drawCube(){
 	cudaMalloc( (void**) d_masslist, massList.size()*sizeof(Mass));
 	cudaMemcpy(d_masslist, massList, massList.size()*sizeof(Mass) , cudaMemcpyHostToDevice);
 	
-	initMassAccel<<<1, massList.size()>>>(d_masslist);
+  //run initMassAccel with 3 threads per block and massList.size() blocks
+	initMassAccel<<<massList.size(), 3>>>(d_masslist);
 	cudaMemcpy(d_masslist, massList, massList.size()*sizeof(Mass), cudaMemcpyDeviceToHost );
 	
 	/*
@@ -296,7 +297,8 @@ void drawCube(){
 	cudaMalloc((void**) d_springList, springList.size()*sizeof(Spring));
 	cudaMemcpy(d_springList, springList, massList.size()*sizeof(Mass), cudaMemcpyHostToDevice);
 
-	calcSpringForce<<< >>>(&springList);
+  //<<num strings, one thread per spring>>
+	calcSpringForce<<<springList.size(), 1 >>>(d_springList);
 
 	cudaMemcpy(springList, d_springList, springList.size()*sizeof(Spring), cudaMemcpyDeviceToHost);
 
@@ -317,7 +319,7 @@ void drawCube(){
 	//cudaMemcpy
 	
 
-	gravityForce<<< >>>(d_masslist, Gravity, dt);
+	gravityForce<<<massList.size(), 1 >>>(d_masslist, Gravity, dt);
 
 	/*Get a list of points that represent the new positions of the masses*/
 	/*
@@ -331,7 +333,7 @@ void drawCube(){
 
 	//cudaMalloc...
 	//cudaMemcpy
-	normalizeMassPos<<< >>>(d_masslist, d_mass_points, fieldDepth);
+	normalizeMassPos<<<massList.size(), 3>>>(d_masslist, d_mass_points, fieldDepth);
 
 	/*Get a list of points that represent the positions of the spring end points*/
 	
