@@ -19,8 +19,25 @@ __global__ void normalizeMassPos(Mass* Masses, float* massPoints, float fieldDep
 //normalizes spring position
 __global__ void normalizeSprings(Spring* Springs, float* springPoints, float fieldDepth){
 	int i = blockIdx.x * blockDim.x + threadIdx.x;
-	springPoints[i] = Springs[ i / 6].m1->Position.x / fieldDepth;
-	
+	switch(i%6):
+	case(0):
+		springPoints[i] = Springs[i/6].m1->Position.x / fieldDepth;
+		break;
+	case(1):
+		springPoints[i] = Springs[i/6].m1->Position.y / fieldDepth;
+		break;
+	case(2):
+		springPoints[i] = Springs[i/6].m1->Position.z / fieldDepth;
+		break;
+	case(3):
+		springPoints[i] = Springs[i/6].m2->Position.x / fieldDepth;
+		break;
+	case(4):
+		springPoints[i] = Springs[i/6].m2->Position.y / fieldDepth;
+		break;
+	case(5):
+		springPoints[5] = Springs[i/6].m2->Position.z / fieldDepth;
+		break;
 }
 
 //calcuates force for each spring

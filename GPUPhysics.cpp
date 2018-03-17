@@ -21,13 +21,16 @@ const float dt = .005f;
 const float fieldDepth = 5.f; //in meters
 vector<Mass> massList;
 vector<Spring> springList;
-int springSize;
-int massSize;
+int springListSize;
+int massListSize;
 
 //These are initialized and passed to the GPU
 Mass* d_masslist;
 Spring* d_springList;
 
+//this makes it easy to copy data back and forth! between device and host!
+Mass* h_massList;
+Spring* h_springList;
 
 /*GLfloat vertices[] =	//mass cooridnates in a cube
     {
@@ -116,24 +119,8 @@ void initList(){
 		massList.push_back(Mass(.5));
 	}
 
-	massList.push_back(Mass(.5));
-	massList.push_back(Mass(.5)); 
-	massList.push_back(Mass(.5));
-	massList.push_back(Mass(.5));
-	massList.push_back(Mass(.5));
-	massList.push_back(Mass(.5));
-	massList.push_back(Mass(.5));
-	massList.push_back(Mass(.5));
-	massList.push_back(Mass(.5));
-	massList.push_back(Mass(.5));
-	massList.push_back(Mass(.5));
-	massList.push_back(Mass(.5));
-	massList.push_back(Mass(.5));
-	massList.push_back(Mass(.5));
-	massList.push_back(Mass(.5));
-	massList.push_back(Mass(.5));
+	massListSize = massList.size();
 	
-	massSize = massList.size();
 	int i = 0;
 	for(Mass& m: massList){
 		m.setPosition(vertices[i], vertices[i+1], vertices[i+2]);
@@ -141,42 +128,33 @@ void initList(){
 	}
 	
 	/*There are n springs in this system*/
-	springList.push_back(Spring(&massList[0], &massList[1], 200.3f)); 
-	springList.push_back(Spring(&massList[0], &massList[2], 200.3f));
-	springList.push_back(Spring(&massList[0], &massList[3], 200.3f)); 
-	springList.push_back(Spring(&massList[0], &massList[4], 200.3f));
-	springList.push_back(Spring(&massList[0], &massList[5], 200.3f));
-	springList.push_back(Spring(&massList[0], &massList[6], 200.3f));
-	springList.push_back(Spring(&massList[0], &massList[7], 200.3f));
-	springList.push_back(Spring(&massList[1], &massList[2], 200.3f));
-	springList.push_back(Spring(&massList[1], &massList[3], 200.3f));
-	springList.push_back(Spring(&massList[1], &massList[4], 200.3f));
-	springList.push_back(Spring(&massList[1], &massList[5], 200.3f));
-	springList.push_back(Spring(&massList[1], &massList[6], 200.3f));
-	springList.push_back(Spring(&massList[1], &massList[7], 200.3f));
-	springList.push_back(Spring(&massList[2], &massList[3], 200.3f));
-	springList.push_back(Spring(&massList[2], &massList[4], 200.3f));
-	springList.push_back(Spring(&massList[2], &massList[5], 200.3f));
-	springList.push_back(Spring(&massList[2], &massList[6], 200.3f));
-	springList.push_back(Spring(&massList[2], &massList[7], 200.3f));
-	springList.push_back(Spring(&massList[3], &massList[4], 200.3f));
-	springList.push_back(Spring(&massList[3], &massList[5], 200.3f));
-	springList.push_back(Spring(&massList[3], &massList[6], 200.3f));
-	springList.push_back(Spring(&massList[3], &massList[7], 200.3f));
-	springList.push_back(Spring(&massList[4], &massList[6], 200.3f));
-	springList.push_back(Spring(&massList[4], &massList[5], 200.3f));
-	springList.push_back(Spring(&massList[4], &massList[7], 200.3f));
-	springList.push_back(Spring(&massList[5], &massList[6], 200.3f));
-	springList.push_back(Spring(&massList[5], &massList[7], 200.3f));
-	springList.push_back(Spring(&massList[6], &massList[7], 200.3f));
+	
 
+	for(i = 0; i < massListSize; i++){
+		for(j = i+1; j < massListSize; j++){
+			springList.push_back(Spring(&massList[i], &masslist[j], 200.3f));
+		}
+	}
+
+	/*
+	int indx1[] = {0,2,4,6,9,10,11};
+	int indx2[] = {0,2,4,6,10,11};
+	int indx3{} = {0,2,4,6,11};
+	int indx4[] = {0,2,4,6};
+	int indx5[] = {1,2,5,7,13,14,15};
+	int indx6[] = {1,3,5,7,14,15};
+	int indx7[] = {1,3,5,7,15};
+	int indx8[] = {1,3,5,7}; 
+	*/
+
+	//this is unfortunate but necessary because of the way that I initialized the mass positions :(
 	springList.push_back(Spring(&massList[8], &massList[0], 200.3f));
+	springList.push_back(Spring(&massList[8], &massList[2], 200.3f));
 	springList.push_back(Spring(&massList[8], &massList[4], 200.3f));
 	springList.push_back(Spring(&massList[8], &massList[6], 200.3f));
 	springList.push_back(Spring(&massList[8], &massList[9], 200.3f));
 	springList.push_back(Spring(&massList[8], &massList[10], 200.3f));
 	springList.push_back(Spring(&massList[8], &massList[11], 200.3f));
-	springList.push_back(Spring(&massList[8], &massList[2], 200.3f));
 	
 	springList.push_back(Spring(&massList[9], &massList[0], 200.3f));
 	springList.push_back(Spring(&massList[9], &massList[2], 200.3f));
@@ -190,11 +168,11 @@ void initList(){
 	springList.push_back(Spring(&massList[10], &massList[4], 200.3f));
 	springList.push_back(Spring(&massList[10], &massList[6], 200.3f));
 	springList.push_back(Spring(&massList[10], &massList[11], 200.3f));
-
-	springList.push_back(Spring(&massList[11], &massList[6], 200.3f));
+	
 	springList.push_back(Spring(&massList[11], &massList[0], 200.3f));
 	springList.push_back(Spring(&massList[11], &massList[2], 200.3f));
 	springList.push_back(Spring(&massList[11], &massList[4], 200.3f));
+	springList.push_back(Spring(&massList[11], &massList[6], 200.3f));
 
 	springList.push_back(Spring(&massList[12], &massList[1], 200.3f));
 	springList.push_back(Spring(&massList[12], &massList[3], 200.3f));
@@ -204,27 +182,36 @@ void initList(){
 	springList.push_back(Spring(&massList[12], &massList[14], 200.3f));
 	springList.push_back(Spring(&massList[12], &massList[15], 200.3f));
 	
+	springList.push_back(Spring(&massList[13], &massList[1], 200.3f));
+	springList.push_back(Spring(&massList[13], &massList[3], 200.3f));
 	springList.push_back(Spring(&massList[13], &massList[5], 200.3f));
 	springList.push_back(Spring(&massList[13], &massList[7], 200.3f));
-	springList.push_back(Spring(&massList[13], &massList[15], 200.3f));
-	springList.push_back(Spring(&massList[13], &massList[3], 200.3f));
-	springList.push_back(Spring(&massList[13], &massList[1], 200.3f));
 	springList.push_back(Spring(&massList[13], &massList[14], 200.3f));
+	springList.push_back(Spring(&massList[13], &massList[15], 200.3f));
 	
+	springList.push_back(Spring(&massList[14], &massList[1], 200.3f));
+	springList.push_back(Spring(&massList[14], &massList[3], 200.3f));
 	springList.push_back(Spring(&massList[14], &massList[5], 200.3f));
 	springList.push_back(Spring(&massList[14], &massList[7], 200.3f));
-	springList.push_back(Spring(&massList[14], &massList[3], 200.3f));
-	springList.push_back(Spring(&massList[14], &massList[1], 200.3f));
 	springList.push_back(Spring(&massList[14], &massList[15], 200.3f));
 
 	springList.push_back(Spring(&massList[15], &massList[1], 200.3f));
-	springList.push_back(Spring(&massList[15], &massList[7], 200.3f));
-	springList.push_back(Spring(&massList[15], &massList[5], 200.3f));
 	springList.push_back(Spring(&massList[15], &massList[3], 200.3f));
+	springList.push_back(Spring(&massList[15], &massList[5], 200.3f));
+	springList.push_back(Spring(&massList[15], &massList[7], 200.3f));
+	
+	springListSize = springList.size() * 2;
 
+	//Turn std::vector objects into pointer arrays because CUDA doesn't work with std :(
+	h_massList = (Mass*) malloc(massListSize * sizeof(Mass));
+	for(i = 0; i < massListSize; i++){
+		h_massList[i] = &massList[i];
+	}
 
-
-	springSize = springList.size() * 2;
+	h_springList = (Spring*) malloc(springListSize/2 * sizeof(Spring));
+	for(i = 0; i < springListSize/2; i++){
+		h_springList[i] = springList[i]; //shallow copy as needed
+	}
 }
 
 
@@ -260,6 +247,8 @@ void drawCube(){
 	float massPoints[massList.size() * 3];
 	float springPoints[springList.size() * 6];
 	
+	
+
 	//while the simulation is running
 	/*
 	for(Mass& m : massList){
@@ -271,12 +260,12 @@ void drawCube(){
 	//cudaMalloc...
 	//cudaMemcpy
 
-	cudaMalloc( (void**) d_masslist, massList.size()*sizeof(Mass));
-	cudaMemcpy(d_masslist, massList, massList.size()*sizeof(Mass) , cudaMemcpyHostToDevice);
+	cudaMalloc( (void**) d_masslist, massListSize*sizeof(Mass));
+	cudaMemcpy(d_masslist, h_massList, massListSize*sizeof(Mass) , cudaMemcpyHostToDevice);
 	
   //run initMassAccel with 3 threads per block and massList.size() blocks
 	initMassAccel<<<massList.size(), 3>>>(d_masslist);
-	cudaMemcpy(d_masslist, massList, massList.size()*sizeof(Mass), cudaMemcpyDeviceToHost );
+	cudaMemcpy(d_masslist, h_massList, massListSize*sizeof(Mass), cudaMemcpyDeviceToHost );
 	
 	/*
 	for(Spring& s : springList){
@@ -295,12 +284,12 @@ void drawCube(){
 	//cudaMemcpy
 	
 	cudaMalloc((void**) d_springList, springList.size()*sizeof(Spring));
-	cudaMemcpy(d_springList, springList, massList.size()*sizeof(Mass), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_springList, h_springList, springListSize*sizeof(Mass), cudaMemcpyHostToDevice);
 
   //<<num strings, one thread per spring>>
 	calcSpringForce<<<springList.size(), 1 >>>(d_springList);
 
-	cudaMemcpy(springList, d_springList, springList.size()*sizeof(Spring), cudaMemcpyDeviceToHost);
+	cudaMemcpy(h_springList, d_springList, springList.size()*sizeof(Spring), cudaMemcpyDeviceToHost);
 
 	/*Update Gravity and Ground Normal Force*/
 	
@@ -352,7 +341,7 @@ void drawCube(){
 	
 	//cudaMalloc...
 	//cudaMemcpy
-	normalizeSprings<<< >>>(d_springList, d_springPoints, fieldDepth);
+	normalizeSprings<<<springListSize, 6>>>(d_springList, d_springPoints, fieldDepth);
 
 	cudaMemcpy(springList, d_springList, springList.size()*sizeof(Spring), cudaMemcpyDeviceToHost);
 	cudaMemcpy(springPoints, d_springPoints, springList.size()*6*sizeof(GL_FLOAT), cudaMemcpyDeviceToHost);
@@ -370,7 +359,7 @@ void drawCube(){
 	glDrawArrays(GL_POINTS, 0, massSize);
 	glDisableClientState(GL_COLOR_ARRAY);
 	glVertexPointer(3, GL_FLOAT, 0, springPoints);
-	glDrawArrays(GL_LINES, 0, springSize);
+	glDrawArrays(GL_LINES, 0, springListSize);
 	/*Disable Drawing*/
 	
 	glDisableClientState(GL_VERTEX_ARRAY);
